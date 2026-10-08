@@ -1,0 +1,32 @@
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1790853635.709360    5708 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+WARNING: All log messages before absl::InitializeLog() is called are written to STDERR
+I0000 00:00:1790853639.171918    5708 port.cc:153] oneDNN custom operations are on. You may see slightly different numerical results due to floating-point round-off errors from different computation orders. To turn them off, set the environment variable `TF_ENABLE_ONEDNN_OPTS=0`.
+I0000 00:00:1790853642.689486    5708 cpu_feature_guard.cc:227] This TensorFlow binary is optimized to use available CPU instructions in performance-critical operations.
+To enable the following instructions: SSE3 SSE4.1 SSE4.2 AVX AVX2 AVX_VNNI FMA, in other operations, rebuild TensorFlow with the appropriate compiler flags.
+WARNING:tensorflow:TensorFlow GPU support is not available on native Windows for TensorFlow >= 2.11. Even if CUDA/cuDNN are installed, GPU will not be used. Please use WSL2 or the TensorFlow-DirectML plugin.
+INFO:     Started server process [11228]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+Model (LSTM), scaler, data loaded. Stations: 38
+All helper functions loaded.
+FastAPI app defined: 4 endpoints (/, /predict/{station_id}, /predict_at_location, /route_exposure). CORS enabled.
+INFO:     127.0.0.1:64508 - "GET /predict_at_location?lat=28.63&lon=77.22 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61718 - "GET /predict_at_location?lat=28.6315&lon=77.2167&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61074 - "GET /predict_at_location?lat=28.6502&lon=77.315&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53979 - "GET /predict_at_location?lat=28.566&lon=77.1767&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:53981 - "GET /predict_at_location?lat=28.6999&lon=77.1654&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65081 - "GET /predict_at_location?lat=28.6315&lon=77.2167&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65082 - "GET /predict_at_location?lat=28.6502&lon=77.315&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:65085 - "GET /predict_at_location?lat=28.6315&lon=77.2167&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49225 - "GET /predict_at_location?lat=28.6502&lon=77.315&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49228 - "GET /predict_at_location?lat=28.566&lon=77.1767&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:49231 - "GET /predict_at_location?lat=28.6999&lon=77.1654&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:64113 - "GET /predict_at_location?lat=28.6315&lon=77.2167&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:61394 - "GET /predict_at_location?lat=28.6502&lon=77.315&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:55284 - "GET /predict_at_location?lat=28.566&lon=77.1767&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:58316 - "GET /predict_at_location?lat=28.6999&lon=77.1654&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:60197 - "GET /predict_at_location?lat=28.6315&lon=77.2167&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:50716 - "GET /predict_at_location?lat=28.6315&lon=77.2167&n_stations=4 HTTP/1.1" 200 OK
+INFO:     127.0.0.1:54236 - "GET /route_options?start_lat=28.633484351395452&start_lon=77.15677330562049&end_lat=28.66561402940803&end_lon=77.26793733051848&sample_interval_km=2.5 HTTP/1.1" 404 Not Found

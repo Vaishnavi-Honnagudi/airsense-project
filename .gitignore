@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
+
+# Flutter / Dart
+airsense_mobile/.dart_tool/
+airsense_mobile/.packages
+airsense_mobile/build/
+airsense_mobile/.flutter-plugins
+airsense_mobile/.flutter-plugins-dependencies
+airsense_mobile/android/.gradle/
+airsense_mobile/android/app/build/
+airsense_mobile/android/build/
+airsense_mobile/android/local.properties
+airsense_mobile/android/key.properties
+airsense_mobile/.idea/
+airsense_mobile/*.iml
+
+# React / Node
+airsense-frontend/node_modules/
+airsense-frontend/.env
+airsense-frontend/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Zip archives (duplicates of source folders)
+*.zip
+
+# Large data files (exceed GitHub 100MB limit)
+/delhi_train.csv
+/delhi_features.csv
+/station_hour.csv
+/delhi_cleaned.csv
+/delhi_station_hour_with_weather.csv
+/delhi_test.csv
+/delhi_station_hour_with_coords.csv
+/delhi_station_hour.csv
+
+# Whitelist lightweight backend deployment datasets
+!backend/delhi_test.csv
+!backend/station_coords.csv
+
+
+# Large PDF
+chat.pdf
+
+# Keras models (can be regenerated from notebooks)
+*.keras
+
+# Pickle files
+*.pkl
+
+# Office temporary lock files
+~$*
+

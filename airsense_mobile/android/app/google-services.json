@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "69222755326",
+    "project_id": "airsense-delhi",
+    "storage_bucket": "airsense-delhi.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:69222755326:android:e7495eb1b9fa68fbce6eaf",
+        "android_client_info": {
+          "package_name": "com.example.airsense_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCY5KsSDoENXIGxVqm1OTMJ2xNc61pYmc8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
