@@ -427,7 +427,7 @@ app.add_middleware(
 
 @app.get("/")
 def root():
-    return {"status": "AQI Prediction API is running", "stations_available": df["StationId"].nunique()}
+    return {"status": "AQI Prediction API is running", "stations_available": int(df["StationId"].nunique())}
 
 
 @app.get("/predict/{station_id}")
