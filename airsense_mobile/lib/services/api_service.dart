@@ -1,8 +1,9 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-// Primary endpoints: checks local emulator bridge first, then remote ngrok tunnel
+// Primary endpoints: checks live Render cloud API first, then local emulator bridge
 const List<String> _candidateBases = [
+  "https://airsense-api-e45n.onrender.com",
   "http://10.0.2.2:8000",
   "https://material-rhyme-friend.ngrok-free.dev",
 ];
