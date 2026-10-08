@@ -104,7 +104,7 @@ export default function MapPage() {
     setStatus("");
   }
 
-  function useCurrentLocation(target) {
+  function locateCurrentPosition(target) {
     if (!navigator.geolocation) {
       setStatus("Geolocation isn't supported in this browser.");
       setStatusIsError(true);
@@ -245,7 +245,7 @@ export default function MapPage() {
                 onSelect={(lat, lon, label) => handleLocationSearchSelect(lat, lon, label)}
                 dotColor="#2E6E5E"
               />
-              <button className="locate-btn" onClick={() => useCurrentLocation("location")} disabled={locating} title="Use current location">
+              <button className="locate-btn" onClick={() => locateCurrentPosition("location")} disabled={locating} title="Use current location">
                 📍
               </button>
             </div>
@@ -268,7 +268,7 @@ export default function MapPage() {
             <div className="field-label">Start point</div>
             <div className="search-with-locate">
               <LocationSearch placeholder="Search or click map for start" onSelect={(lat, lon, label) => handleStartSearchSelect(lat, lon, label)} dotColor="#2E6E5E" />
-              <button className="locate-btn" onClick={() => useCurrentLocation("start")} disabled={locating} title="Use current location">
+              <button className="locate-btn" onClick={() => locateCurrentPosition("start")} disabled={locating} title="Use current location">
                 📍
               </button>
             </div>
