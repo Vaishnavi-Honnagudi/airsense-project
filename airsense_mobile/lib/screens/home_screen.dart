@@ -150,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       String msg = e.toString();
       if (msg.contains("3200") || msg.contains("offline") || msg.contains("Failed to connect") || msg.contains("Couldn't reach")) {
-        msg = "Colab backend is currently offline. Please ensure the Colab notebook with ngrok is running.";
+        msg = "Connecting to AirSense Cloud... If the server was idle, it is waking up (takes ~30s). Please tap again.";
       }
       setState(() {
         _status = msg;

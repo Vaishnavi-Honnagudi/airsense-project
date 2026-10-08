@@ -84,7 +84,7 @@ export async function routeOptions(startLat, startLon, endLat, endLon, sampleInt
   try {
     return await getJSON(
       `/route_options?start_lat=${startLat}&start_lon=${startLon}&end_lat=${endLat}&end_lon=${endLon}&sample_interval_km=${sampleIntervalKm}`,
-      12000
+      25000
     );
   } catch (err) {
     console.info("AirSense backend offline — utilizing calibrated route comparison engine.");

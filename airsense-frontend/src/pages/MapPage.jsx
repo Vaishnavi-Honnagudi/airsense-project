@@ -207,15 +207,22 @@ export default function MapPage() {
     setStatusIsError(false);
     try {
       const data = await routeOptions(routeStart.lat, routeStart.lng, routeEnd.lat, routeEnd.lng);
-      setRoutes(data.routes);
-      setSelectedRouteIndex(data.recommended_index ?? 0);
+      const routeList = data.routes || [];
+      const recIdx = (data.recommended_index != null && data.recommended_index >= 0 && data.recommended_index < routeList.length)
+        ? data.recommended_index
+        : 0;
+
+      setRoutes(routeList);
+      setSelectedRouteIndex(recIdx);
       setStatus("");
       
-      addHistoryEntry({
-        type: 'route',
-        aqi: data.routes[data.recommended_index ?? 0].average_aqi_exposure,
-        locationLabel: `${routeStart.label || 'Start'} to ${routeEnd.label || 'End'}`
-      });
+      if (routeList.length > 0 && routeList[recIdx]) {
+        addHistoryEntry({
+          type: 'route',
+          aqi: routeList[recIdx].average_aqi_exposure,
+          locationLabel: `${routeStart.label || 'Start'} to ${routeEnd.label || 'End'}`
+        });
+      }
     } catch (err) {
       setStatus(`Couldn't reach the API — ${err.message}`);
       setStatusIsError(true);

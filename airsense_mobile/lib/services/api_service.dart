@@ -33,7 +33,7 @@ class ApiService {
           headers: {
             "ngrok-skip-browser-warning": "true",
           },
-        ).timeout(Duration(seconds: isLocal ? 3 : 15));
+        ).timeout(Duration(seconds: isLocal ? 3 : 35));
 
         if (res.statusCode == 200) {
           _activeBase = base;

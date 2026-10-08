@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AppProvider, useAppContext } from "./context/AppContext";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import Navbar from "./components/Navbar";
 import DashboardPage from "./pages/DashboardPage";
 import MapPage from "./pages/MapPage";
@@ -34,10 +35,12 @@ function AppContent() {
 
 export default function App() {
   return (
-    <BrowserRouter>
-      <AppProvider>
-        <AppContent />
-      </AppProvider>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppProvider>
+          <AppContent />
+        </AppProvider>
+      </BrowserRouter>
+    </ErrorBoundary>
   );
 }

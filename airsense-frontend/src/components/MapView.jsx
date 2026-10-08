@@ -83,13 +83,29 @@ export default function MapView({
       if (routes && routes.length > 0) {
         let allBounds = [];
 
+        function getPointsFromRoute(r, idx) {
+          if (r.full_route_geometry && Array.isArray(r.full_route_geometry) && r.full_route_geometry.length > 0) {
+            return r.full_route_geometry.map((p) => [p.lat, p.lon]);
+          }
+          if (r.route_points && Array.isArray(r.route_points) && r.route_points.length > 0) {
+            return r.route_points.map((p) => [p.lat, p.lon]);
+          }
+          if (routeStart && routeEnd) {
+            const offset = (idx === 0 ? 0.005 : idx === 1 ? -0.01 : 0.012);
+            return [
+              [routeStart.lat, routeStart.lng],
+              [(routeStart.lat + routeEnd.lat) / 2 + offset, (routeStart.lng + routeEnd.lng) / 2 + offset],
+              [routeEnd.lat, routeEnd.lng]
+            ];
+          }
+          return [];
+        }
+
         // Draw non-selected routes first (so the selected one renders on top)
         routes.forEach((route, i) => {
           if (i === selectedRouteIndex) return;
-          const lineSource = (route.full_route_geometry?.length
-            ? route.full_route_geometry
-            : route.route_points
-          ).map((p) => [p.lat, p.lon]);
+          const lineSource = getPointsFromRoute(route, i);
+          if (lineSource.length < 2) return;
 
           const line = L.polyline(lineSource, {
             color: "#8A8478",
@@ -104,39 +120,46 @@ export default function MapView({
           allBounds = allBounds.concat(lineSource);
         });
 
-        // Draw the selected route last, bold and vivid — same idea as Google Maps
-        const selected = routes[selectedRouteIndex];
+        // Draw the selected route last, bold and vivid
+        const selected = routes[selectedRouteIndex] || routes[0];
         if (selected) {
-          const lineSource = (selected.full_route_geometry?.length
-            ? selected.full_route_geometry
-            : selected.route_points
-          ).map((p) => [p.lat, p.lon]);
+          const lineSource = getPointsFromRoute(selected, selectedRouteIndex);
+          if (lineSource.length >= 2) {
+            L.polyline(lineSource, {
+              color: selected.recommended ? "#2E6E5E" : "#1C2530",
+              weight: 6,
+              opacity: 0.85,
+            }).addTo(group);
 
-          L.polyline(lineSource, {
-            color: selected.recommended ? "#2E6E5E" : "#1C2530",
-            weight: 6,
-            opacity: 0.85,
-          }).addTo(group);
+            if (selected.route_points && Array.isArray(selected.route_points)) {
+              selected.route_points.forEach((p) => {
+                if (!p || p.lat == null || p.lon == null) return;
+                const cat = categorize(p.predicted_aqi);
+                L.circleMarker([p.lat, p.lon], {
+                  radius: 6,
+                  color: "#1C2530",
+                  weight: 1,
+                  fillColor: categoryColor(cat),
+                  fillOpacity: 0.95,
+                })
+                  .bindPopup(`<b>${p.predicted_aqi} AQI</b><br>${cat}`)
+                  .addTo(group);
+              });
+            }
 
-          selected.route_points.forEach((p) => {
-            const cat = categorize(p.predicted_aqi);
-            L.circleMarker([p.lat, p.lon], {
-              radius: 6,
-              color: "#1C2530",
-              weight: 1,
-              fillColor: categoryColor(cat),
-              fillOpacity: 0.95,
-            })
-              .bindPopup(`<b>${p.predicted_aqi} AQI</b><br>${cat}`)
-              .addTo(group);
-          });
-
-          allBounds = allBounds.concat(lineSource);
+            allBounds = allBounds.concat(lineSource);
+          }
         }
 
         if (allBounds.length > 0) {
-          map.fitBounds(L.polyline(allBounds).getBounds(), { padding: [40, 40] });
+          try {
+            map.fitBounds(L.polyline(allBounds).getBounds(), { padding: [40, 40] });
+          } catch (e) {
+            console.warn("Could not fitBounds:", e);
+          }
         }
+      } else if (routeStart && !routeEnd) {
+        map.setView([routeStart.lat, routeStart.lng], 13);
       }
     }
   }, [mode, selectedPoint, routeStart, routeEnd, locationResult, routes, selectedRouteIndex, onSelectRoute]);

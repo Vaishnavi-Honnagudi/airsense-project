@@ -123,6 +123,30 @@ export function fallbackRouteOptions(startLat, startLon, endLat, endLon) {
   const endPred = fallbackPredictAtLocation(endLat, endLon).interpolated_aqi;
   const avgBase = (startPred + endPred) / 2;
 
+  // Helper to generate realistic spatial geometry and AQI checkpoints
+  function buildRouteGeometry(offsetLat, offsetLon, baseAqi, nPoints = 8) {
+    const fullGeom = [];
+    const samplePts = [];
+    for (let i = 0; i <= nPoints; i++) {
+      const frac = i / nPoints;
+      // Parabolic curvature for natural route look
+      const curve = Math.sin(frac * Math.PI);
+      const lat = Number((startLat + (endLat - startLat) * frac + offsetLat * curve).toFixed(5));
+      const lon = Number((startLon + (endLon - startLon) * frac + offsetLon * curve).toFixed(5));
+      fullGeom.push({ lat, lon });
+      samplePts.push({
+        lat,
+        lon,
+        predicted_aqi: Math.round(Math.max(25, Math.min(480, baseAqi + (i % 3 - 1) * 8))),
+      });
+    }
+    return { full_route_geometry: fullGeom, route_points: samplePts };
+  }
+
+  const g0 = buildRouteGeometry(0.008, -0.006, avgBase * 0.88);
+  const g1 = buildRouteGeometry(-0.015, 0.012, avgBase * 1.18);
+  const g2 = buildRouteGeometry(0.018, 0.015, avgBase);
+
   // Generate 3 alternative corridors matching real spatial routes
   const routes = [
     {
@@ -136,6 +160,8 @@ export function fallbackRouteOptions(startLat, startLon, endLat, endLon) {
       congestion_percentage: 28,
       average_speed_kmh: 32.5,
       weather: { Temperature_C: 27.4, Humidity_pct: 53, WindSpeed_kmh: 11.2 },
+      full_route_geometry: g0.full_route_geometry,
+      route_points: g0.route_points,
     },
     {
       route_index: 1,
@@ -148,6 +174,8 @@ export function fallbackRouteOptions(startLat, startLon, endLat, endLon) {
       congestion_percentage: 64,
       average_speed_kmh: 24.0,
       weather: { Temperature_C: 28.1, Humidity_pct: 50, WindSpeed_kmh: 9.8 },
+      full_route_geometry: g1.full_route_geometry,
+      route_points: g1.route_points,
     },
     {
       route_index: 2,
@@ -160,6 +188,8 @@ export function fallbackRouteOptions(startLat, startLon, endLat, endLon) {
       congestion_percentage: 18,
       average_speed_kmh: 36.0,
       weather: { Temperature_C: 27.2, Humidity_pct: 55, WindSpeed_kmh: 12.0 },
+      full_route_geometry: g2.full_route_geometry,
+      route_points: g2.route_points,
     },
   ];
 

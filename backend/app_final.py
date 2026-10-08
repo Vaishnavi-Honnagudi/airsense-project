@@ -29,6 +29,7 @@ TensorFlow doesn't work locally on your setup):
 
 import pickle
 import threading
+import concurrent.futures
 import numpy as np
 import pandas as pd
 import requests
@@ -143,6 +144,21 @@ def get_cached_station_aqi(station_id):
     if station_id not in _station_aqi_cache:
         _station_aqi_cache[station_id] = predict_aqi_for_station(station_id)
     return _station_aqi_cache[station_id]
+
+
+def _warmup_station_cache():
+    """Background pre-computation of all 38 Delhi monitoring stations to ensure zero-latency IDW routing."""
+    try:
+        for sid in station_coords["StationId"]:
+            if sid not in _station_aqi_cache:
+                try:
+                    _station_aqi_cache[sid] = predict_aqi_for_station(sid)
+                except Exception:
+                    pass
+    except Exception as e:
+        print(f"Notice: Cache prewarm notice: {e}")
+
+threading.Thread(target=_warmup_station_cache, daemon=True).start()
 
 
 # ============================================================
@@ -286,11 +302,11 @@ def get_tomtom_flow(lat, lon):
     try:
         url = "https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/10/json"
         params = {"point": f"{lat},{lon}", "key": TOMTOM_API_KEY}
-        resp = requests.get(url, params=params, timeout=8)
+        resp = requests.get(url, params=params, timeout=2.5)
         resp.raise_for_status()
         data = resp.json().get("flowSegmentData", {})
         return data.get("currentSpeed", 0), data.get("freeFlowSpeed", 0)
-    except Exception as e:
+    except Exception:
         return 0, 0
 
 
@@ -307,14 +323,20 @@ def get_real_traffic_for_route(sampled_points):
     ]
     ratios = []
     free_flows = []
-    for lon, lat in check_points:
-        try:
-            current, free_flow = get_tomtom_flow(lat, lon)
-            if free_flow > 0:
-                ratios.append(current / free_flow)
-                free_flows.append(free_flow)
-        except Exception:
-            continue
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+            futures = [executor.submit(get_tomtom_flow, lat, lon) for lon, lat in check_points]
+            for f in concurrent.futures.as_completed(futures, timeout=3.5):
+                try:
+                    current, free_flow = f.result()
+                    if free_flow > 0:
+                        ratios.append(current / free_flow)
+                        free_flows.append(free_flow)
+                except Exception:
+                    pass
+    except Exception:
+        pass
 
     if not ratios:
         return "Unknown", None, None
