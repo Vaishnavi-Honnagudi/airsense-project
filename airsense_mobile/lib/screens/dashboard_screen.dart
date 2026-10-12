@@ -56,8 +56,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       final res = await ApiService.predictAtLocation(coords["lat"]!, coords["lon"]!);
       if (res.containsKey("interpolated_aqi") && mounted) {
         final aqiVal = (res["interpolated_aqi"] as num).toDouble();
+        final lw = res["latest_weather"] as Map<String, dynamic>?;
+        final liveTemp = (lw?["Temperature_C"] as num?)?.toDouble();
+        final liveHum = (lw?["Humidity_pct"] as num?)?.round();
+        final liveWind = (lw?["WindSpeed_kmh"] as num?)?.toDouble();
+        final livePress = (lw?["Pressure_hPa"] as num?)?.round();
         setState(() {
           _livePredictedAqi = aqiVal;
+          _currentData = _currentData.copyWithLiveTelemetry(
+            liveAqi: aqiVal,
+            liveTemp: liveTemp,
+            liveHumidity: liveHum,
+            liveWindSpeed: liveWind,
+            livePressure: livePress,
+            zoneIndex: index,
+          );
           _isLiveModelOutput = true;
           _isLoadingLiveModel = false;
         });

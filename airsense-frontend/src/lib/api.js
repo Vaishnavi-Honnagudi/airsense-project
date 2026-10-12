@@ -94,7 +94,7 @@ export async function routeOptions(startLat, startLon, endLat, endLon, sampleInt
 
 export async function getAqiTimeline(lat, lon, hoursBack = 24, hoursForward = 24) {
   try {
-    return await getJSON(`/aqi_timeline?lat=${lat}&lon=${lon}&hours_back=${hoursBack}&hours_forward=${hoursForward}`, 5000);
+    return await getJSON(`/aqi_timeline?lat=${lat}&lon=${lon}&hours_back=${hoursBack}&hours_forward=${hoursForward}`, 15000);
   } catch (err) {
     console.info("AirSense backend offline — generating calibrated LSTM timeline.");
     return fallbackAqiTimeline(lat, lon);
@@ -103,7 +103,7 @@ export async function getAqiTimeline(lat, lon, hoursBack = 24, hoursForward = 24
 
 export async function getWeatherHistory(lat, lon, hoursBack = 168) {
   try {
-    return await getJSON(`/weather_history?lat=${lat}&lon=${lon}&hours_back=${hoursBack}`, 5000);
+    return await getJSON(`/weather_history?lat=${lat}&lon=${lon}&hours_back=${hoursBack}`, 15000);
   } catch (err) {
     console.info("AirSense backend offline — generating calibrated weather history.");
     return fallbackWeatherHistory(lat, lon, hoursBack);

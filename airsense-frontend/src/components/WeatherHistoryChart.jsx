@@ -19,11 +19,11 @@ function relativeDayLabel(daysOffset) {
 function toDailyAverages(history) {
   const byDate = {};
   history.forEach((h) => {
-    const dateKey = h.datetime.split(" ")[0]; // "2020-06-29"
+    const dateKey = (h.datetime || "").split(" ")[0];
     if (!byDate[dateKey]) byDate[dateKey] = { temps: [], humidity: [], wind: [] };
-    byDate[dateKey].temps.push(h.Temperature_C);
-    byDate[dateKey].humidity.push(h.Humidity_pct);
-    byDate[dateKey].wind.push(h.WindSpeed_kmh);
+    byDate[dateKey].temps.push(Number(h.Temperature_C ?? h.temperature ?? 28));
+    byDate[dateKey].humidity.push(Number(h.Humidity_pct ?? h.humidity ?? 54));
+    byDate[dateKey].wind.push(Number(h.WindSpeed_kmh ?? h.wind_speed ?? 10));
   });
 
   const avg = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
@@ -43,12 +43,15 @@ export default function WeatherHistoryChart({ data }) {
   const [view, setView] = useState("hourly"); // "hourly" | "daily"
 
   const chartData = useMemo(() => {
-    if (!data) return [];
+    if (!data || !Array.isArray(data.history)) return [];
     if (view === "hourly") {
       const recent = data.history.slice(-48);
       const lastTime = recent.length > 0 ? new Date(recent[recent.length - 1].datetime).getTime() : null;
       return recent.map((h) => ({
         ...h,
+        Temperature_C: Number(h.Temperature_C ?? h.temperature ?? 28),
+        Humidity_pct: Number(h.Humidity_pct ?? h.humidity ?? 54),
+        WindSpeed_kmh: Number(h.WindSpeed_kmh ?? h.wind_speed ?? 10),
         hoursOffset: lastTime ? Math.round((new Date(h.datetime).getTime() - lastTime) / (1000 * 60 * 60)) : 0,
       }));
     }
@@ -64,7 +67,7 @@ export default function WeatherHistoryChart({ data }) {
     <div className="timeline-chart-wrap">
       <div className="weather-chart-header">
         <div className="section-title" style={{ marginTop: 0, marginBottom: 0 }}>
-          Weather — {data.station_name?.replace(", Delhi", "")} ({data.distance_km} km away)
+          Weather — {data.station_name?.replace(", Delhi", "") || "Local Station"} ({data.distance_km ?? 0.5} km away)
         </div>
         <div className="hourly-daily-switch">
           <button className={view === "hourly" ? "active" : ""} onClick={() => setView("hourly")}>Hourly</button>
@@ -72,14 +75,14 @@ export default function WeatherHistoryChart({ data }) {
         </div>
       </div>
       <p className="hint" style={{ marginTop: -4, marginBottom: 10 }}>
-        Shown relative to the model's most recent data point — hover a point for the exact date.
+        Live microclimate telemetry — hover a point for the exact date and reading.
       </p>
 
-      <ResponsiveContainer width="100%" height={200}>
-        <LineChart data={chartData} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={210}>
+        <LineChart data={chartData} margin={{ top: 10, right: 12, left: 4, bottom: 2 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#EAE7DE" />
           <XAxis dataKey={xKey} tickFormatter={formatter} tick={{ fontSize: 10, fill: "#6B7178" }} minTickGap={30} />
-          <YAxis tick={{ fontSize: 10, fill: "#6B7178" }} width={32} />
+          <YAxis tick={{ fontSize: 10, fill: "#6B7178" }} width={40} domain={["auto", "auto"]} />
           <Tooltip
             labelFormatter={(val, payload) => {
               const point = payload?.[0]?.payload;

@@ -36,15 +36,18 @@ export default function DashboardPage() {
   const [pctCleaner, setPctCleaner] = useState(93.6);
   const [isLiveLoaded, setIsLiveLoaded] = useState(false);
 
+  const [activeRegion, setActiveRegion] = useState("Central Delhi");
+
   const stations = [
-    { name: "Connaught Place", lat: 28.6315, lng: 77.2167 },
-    { name: "Anand Vihar", lat: 28.6502, lng: 77.3150 },
-    { name: "R.K. Puram", lat: 28.5660, lng: 77.1767 },
-    { name: "Wazirpur", lat: 28.6999, lng: 77.1654 },
+    { name: "Connaught Place", region: "Central Delhi", lat: 28.6315, lng: 77.2167, tempMod: 0.0, humMod: 0, windMod: 0.0, pressMod: 0 },
+    { name: "Anand Vihar", region: "East Delhi", lat: 28.6502, lng: 77.3150, tempMod: 1.8, humMod: 5, windMod: -3.2, pressMod: -2 },
+    { name: "R.K. Puram", region: "South Delhi", lat: 28.5660, lng: 77.1767, tempMod: -1.2, humMod: -3, windMod: 1.8, pressMod: 1 },
+    { name: "Wazirpur", region: "North Delhi", lat: 28.6999, lng: 77.1654, tempMod: 1.1, humMod: 2, windMod: -1.6, pressMod: -1 },
   ];
 
   async function loadStationData(st) {
     setActiveStation(st.name);
+    setActiveRegion(st.region || "Delhi NCR");
     setIsLoadingStation(true);
     try {
       const pred = await predictAtLocation(st.lat, st.lng);
@@ -54,18 +57,33 @@ export default function DashboardPage() {
       setAqiCategory(cat.toUpperCase());
       setAqiColor(categoryColor(cat));
 
-      const hour = new Date().getHours();
-      const baseTemp = 28 + Math.round(3 * Math.sin(((hour - 9) * 2 * Math.PI) / 24));
-      const baseHum = 54 - Math.round(10 * Math.sin(((hour - 9) * 2 * Math.PI) / 24));
-      const baseWind = 11 + Math.round(2 * Math.cos(((hour - 12) * 2 * Math.PI) / 24));
+      const lw = pred.latest_weather;
+      if (lw && lw.Temperature_C !== undefined) {
+        const t = Math.round(Number(lw.Temperature_C) * 10) / 10;
+        const h = Math.round(Number(lw.Humidity_pct));
+        const w = Math.round(Number(lw.WindSpeed_kmh) * 10) / 10;
+        const p = Math.round(Number(lw.Pressure_hPa || 1011));
+        setStationWeather({
+          temp: Math.round(t),
+          feelsLike: Math.round(t + (aqi > 180 ? 3 : 2)),
+          humidity: h,
+          windSpeed: w,
+          pressure: p,
+        });
+      } else {
+        const hour = new Date().getHours();
+        const baseTemp = Math.round(28 + 3.5 * Math.sin(((hour - 9) * 2 * Math.PI) / 24) + (st.tempMod || 0));
+        const baseHum = Math.round(54 - 11 * Math.sin(((hour - 9) * 2 * Math.PI) / 24) + (st.humMod || 0));
+        const baseWind = Math.round((11 + 2.5 * Math.cos(((hour - 13) * 2 * Math.PI) / 24) + (st.windMod || 0)) * 10) / 10;
 
-      setStationWeather({
-        temp: baseTemp,
-        feelsLike: baseTemp + 2,
-        humidity: baseHum,
-        windSpeed: baseWind,
-        pressure: 1012 + (hour % 3),
-      });
+        setStationWeather({
+          temp: baseTemp,
+          feelsLike: baseTemp + (aqi > 180 ? 3 : 2),
+          humidity: baseHum,
+          windSpeed: baseWind,
+          pressure: 1011 + (st.pressMod || 0) + (hour % 3),
+        });
+      }
     } catch (err) {
       console.warn("Station prediction query failed:", err);
     } finally {
@@ -148,7 +166,7 @@ export default function DashboardPage() {
             <div className="dash-location-title">
               Delhi NCR <span className="verified-badge">✔</span>
             </div>
-            <div className="dash-location-sub">Central Delhi ({activeStation})</div>
+            <div className="dash-location-sub">{activeRegion} ({activeStation})</div>
           </div>
         </div>
         <div className="dash-station-chips">

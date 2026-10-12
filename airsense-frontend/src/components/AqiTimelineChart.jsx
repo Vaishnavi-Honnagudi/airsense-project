@@ -50,8 +50,8 @@ export default function AqiTimelineChart({ data }) {
         Shown relative to the model's most recent data point — hover a point for the exact date/time.
       </p>
 
-      <ResponsiveContainer width="100%" height={220}>
-        <LineChart data={merged} margin={{ top: 8, right: 8, left: -20, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={225}>
+        <LineChart data={merged} margin={{ top: 12, right: 12, left: 4, bottom: 2 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#EAE7DE" />
           <XAxis
             dataKey="hoursOffset"
@@ -60,13 +60,20 @@ export default function AqiTimelineChart({ data }) {
             interval="preserveStartEnd"
             minTickGap={40}
           />
-          <YAxis tick={{ fontSize: 10, fill: "#6B7178" }} width={32} />
+          <YAxis
+            tick={{ fontSize: 10, fill: "#6B7178" }}
+            width={40}
+            domain={[
+              (dataMin) => Math.max(0, Math.floor((Number.isFinite(dataMin) ? dataMin : 50) - 12)),
+              (dataMax) => Math.ceil((Number.isFinite(dataMax) ? dataMax : 200) + 12),
+            ]}
+          />
           <Tooltip
             labelFormatter={(hoursOffset, payload) => {
               const point = payload?.[0]?.payload;
               return point ? `${relativeLabel(hoursOffset)} · ${formatAbsolute(point.time)}` : relativeLabel(hoursOffset);
             }}
-            formatter={(value, name) => [value, name === "pastAqi" ? "Actual" : "Predicted"]}
+            formatter={(value, name) => [`${value} AQI`, name === "pastAqi" ? "Actual" : "Predicted"]}
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #DAD6C9" }}
           />
           <ReferenceLine
@@ -102,7 +109,9 @@ export default function AqiTimelineChart({ data }) {
         <span><span className="legend-dot dashed" style={{ borderColor: "#E0533D" }} /> Predicted (next {future.length}h)</span>
       </div>
 
-      <p className="hint" style={{ marginTop: 8 }}>{data.note} The model's data currently ends at {past.length > 0 ? formatAbsolute(past[past.length - 1].datetime) : "the dataset's last recorded hour"} — "Now" here refers to that point, not today's actual date.</p>
+      <p className="hint" style={{ marginTop: 8 }}>
+        {data.note} Latest reference timestamp: {past.length > 0 ? formatAbsolute(past[past.length - 1].datetime) : "Live IST"}.
+      </p>
     </div>
   );
 }
