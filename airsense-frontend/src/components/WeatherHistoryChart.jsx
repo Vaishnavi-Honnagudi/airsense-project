@@ -58,7 +58,15 @@ export default function WeatherHistoryChart({ data }) {
     return toDailyAverages(data.history);
   }, [data, view]);
 
-  if (!data) return null;
+  if (!data || chartData.length === 0) return null;
+
+  const temps = chartData.map((d) => d.Temperature_C);
+  const hums = chartData.map((d) => d.Humidity_pct);
+  const winds = chartData.map((d) => d.WindSpeed_kmh);
+  const minTemp = Math.min(...temps).toFixed(1);
+  const maxTemp = Math.max(...temps).toFixed(1);
+  const avgHum = Math.round(hums.reduce((a, b) => a + b, 0) / hums.length);
+  const maxWind = Math.max(...winds).toFixed(1);
 
   const xKey = view === "hourly" ? "hoursOffset" : "daysOffset";
   const formatter = view === "hourly" ? relativeHourLabel : relativeDayLabel;
@@ -74,15 +82,46 @@ export default function WeatherHistoryChart({ data }) {
           <button className={view === "daily" ? "active" : ""} onClick={() => setView("daily")}>Daily</button>
         </div>
       </div>
-      <p className="hint" style={{ marginTop: -4, marginBottom: 10 }}>
-        Live microclimate telemetry — hover a point for the exact date and reading.
-      </p>
 
-      <ResponsiveContainer width="100%" height={210}>
-        <LineChart data={chartData} margin={{ top: 10, right: 12, left: 4, bottom: 2 }}>
+      {/* Location-specific microclimate summary strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, margin: "8px 0 10px" }}>
+        <div style={{ background: "#F5F3EE", padding: "6px 8px", borderRadius: 7, border: "1px solid #EAE7DE" }}>
+          <div style={{ fontSize: 9.5, color: "#6B7178", fontWeight: 700 }}>TEMP RANGE</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#E0533D" }}>{minTemp}°–{maxTemp}°C</div>
+        </div>
+        <div style={{ background: "#F5F3EE", padding: "6px 8px", borderRadius: 7, border: "1px solid #EAE7DE" }}>
+          <div style={{ fontSize: 9.5, color: "#6B7178", fontWeight: 700 }}>AVG HUMIDITY</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#2E6E5E" }}>{avgHum}% RH</div>
+        </div>
+        <div style={{ background: "#F5F3EE", padding: "6px 8px", borderRadius: 7, border: "1px solid #EAE7DE" }}>
+          <div style={{ fontSize: 9.5, color: "#6B7178", fontWeight: 700 }}>PEAK WIND</div>
+          <div style={{ fontSize: 12.5, fontWeight: 800, color: "#1C2530" }}>{maxWind} km/h</div>
+        </div>
+      </div>
+
+      <ResponsiveContainer width="100%" height={225}>
+        <LineChart data={chartData} margin={{ top: 10, right: 6, left: 4, bottom: 2 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#EAE7DE" />
           <XAxis dataKey={xKey} tickFormatter={formatter} tick={{ fontSize: 10, fill: "#6B7178" }} minTickGap={30} />
-          <YAxis tick={{ fontSize: 10, fill: "#6B7178" }} width={40} domain={["auto", "auto"]} />
+          <YAxis
+            yAxisId="left"
+            tick={{ fontSize: 10, fill: "#E0533D" }}
+            width={34}
+            domain={[
+              (dMin) => Math.max(0, Math.floor((Number.isFinite(dMin) ? dMin : 5) - 2)),
+              (dMax) => Math.ceil((Number.isFinite(dMax) ? dMax : 35) + 2),
+            ]}
+          />
+          <YAxis
+            yAxisId="right"
+            orientation="right"
+            tick={{ fontSize: 10, fill: "#2E6E5E" }}
+            width={34}
+            domain={[
+              (dMin) => Math.max(10, Math.floor((Number.isFinite(dMin) ? dMin : 30) - 5)),
+              (dMax) => Math.min(100, Math.ceil((Number.isFinite(dMax) ? dMax : 80) + 5)),
+            ]}
+          />
           <Tooltip
             labelFormatter={(val, payload) => {
               const point = payload?.[0]?.payload;
@@ -93,9 +132,9 @@ export default function WeatherHistoryChart({ data }) {
             contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #DAD6C9" }}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
-          <Line type="monotone" dataKey="Temperature_C" name="Temp (°C)" stroke="#E0533D" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="Humidity_pct" name="Humidity (%)" stroke="#2E6E5E" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="WindSpeed_kmh" name="Wind (km/h)" stroke="#8A8478" strokeWidth={2} dot={false} />
+          <Line yAxisId="left" type="monotone" dataKey="Temperature_C" name="Temp (°C)" stroke="#E0533D" strokeWidth={2.3} dot={view === "daily"} />
+          <Line yAxisId="right" type="monotone" dataKey="Humidity_pct" name="Humidity (%)" stroke="#2E6E5E" strokeWidth={2.2} dot={view === "daily"} />
+          <Line yAxisId="left" type="monotone" dataKey="WindSpeed_kmh" name="Wind (km/h)" stroke="#5C6B73" strokeWidth={2} strokeDasharray="4 3" dot={view === "daily"} />
         </LineChart>
       </ResponsiveContainer>
 

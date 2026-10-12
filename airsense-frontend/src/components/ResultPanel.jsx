@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { categorize, categoryColor, getAgeGroup, isConcerningForAgeGroup, getAdvisory } from "../lib/aqi";
 import TrafficGauge from "./TrafficGauge";
 import CommuteOptimizer from "./CommuteOptimizer";
@@ -58,9 +60,27 @@ export function LocationResult({ data, healthNote, ageGroup }) {
 
       <HealthAdvisory aqi={data.interpolated_aqi} ageGroup={ageGroup} healthNote={healthNote} />
 
+      {data.latest_weather && (
+        <>
+          <div className="section-title">Microclimate at this coordinate</div>
+          <div className="pollutant-row">
+            <span>Temperature</span>
+            <span>{data.latest_weather.Temperature_C}&deg;C</span>
+          </div>
+          <div className="pollutant-row">
+            <span>Humidity</span>
+            <span>{data.latest_weather.Humidity_pct}%</span>
+          </div>
+          <div className="pollutant-row">
+            <span>Wind speed</span>
+            <span>{data.latest_weather.WindSpeed_kmh} km/h</span>
+          </div>
+        </>
+      )}
+
       {((data.contributing_stations || data.nearest_stations || []).length > 0) && (
         <>
-          <div className="section-title">Nearby stations used</div>
+          <div className="section-title">Nearby stations used (IDW)</div>
           {(data.contributing_stations || data.nearest_stations || []).map((s, i) => (
             <div className="pollutant-row" key={i}>
               <span>{(s.station || s.station_name || "").replace(", Delhi", "")}</span>
@@ -75,9 +95,78 @@ export function LocationResult({ data, healthNote, ageGroup }) {
   );
 }
 
+function RouteCorridorChart({ routes, selectedIndex }) {
+  const chartData = useMemo(() => {
+    if (!routes || routes.length === 0) return [];
+    const maxPts = Math.max(...routes.map((r) => (r.route_points || []).length), 2);
+    const selectedRoute = routes[selectedIndex] || routes[0];
+    const totalDist = Number(selectedRoute.route_distance_km || 5.0);
+
+    const rows = [];
+    for (let idx = 0; idx < maxPts; idx++) {
+      const frac = idx / Math.max(1, maxPts - 1);
+      const row = {
+        checkpoint: idx === 0 ? "Start" : idx === maxPts - 1 ? "End" : `${(totalDist * frac).toFixed(1)}km`,
+      };
+      routes.forEach((r, rIdx) => {
+        const pts = r.route_points || [];
+        if (pts.length > 0) {
+          const mappedIdx = Math.min(pts.length - 1, Math.round(frac * (pts.length - 1)));
+          row[`route${rIdx + 1}`] = Number(pts[mappedIdx].predicted_aqi);
+        }
+      });
+      rows.push(row);
+    }
+    return rows;
+  }, [routes, selectedIndex]);
+
+  if (chartData.length < 2) return null;
+
+  const colors = ["#2E6E5E", "#E0533D", "#5C6B73"];
+
+  return (
+    <div className="timeline-chart-wrap" style={{ marginTop: 16 }}>
+      <div className="section-title" style={{ marginTop: 0 }}>
+        Corridor AQI exposure profile (Start ➔ Destination)
+      </div>
+      <p className="hint" style={{ marginTop: -4, marginBottom: 8 }}>
+        Checkpoint-by-checkpoint PM2.5/AQI interpolation along each candidate road corridor.
+      </p>
+      <ResponsiveContainer width="100%" height={205}>
+        <LineChart data={chartData} margin={{ top: 8, right: 10, left: 2, bottom: 2 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#EAE7DE" />
+          <XAxis dataKey="checkpoint" tick={{ fontSize: 10, fill: "#6B7178" }} interval="preserveStartEnd" />
+          <YAxis
+            tick={{ fontSize: 10, fill: "#6B7178" }}
+            width={36}
+            domain={[
+              (dMin) => Math.max(10, Math.floor((Number.isFinite(dMin) ? dMin : 50) - 12)),
+              (dMax) => Math.ceil((Number.isFinite(dMax) ? dMax : 200) + 12),
+            ]}
+          />
+          <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: "1px solid #DAD6C9" }} />
+          <Legend wrapperStyle={{ fontSize: 11 }} />
+          {routes.map((r, i) => (
+            <Line
+              key={i}
+              type="monotone"
+              dataKey={`route${i + 1}`}
+              name={`Route ${i + 1} (${r.corridor_label || "Corridor"})`}
+              stroke={colors[i % colors.length]}
+              strokeWidth={i === selectedIndex ? 3 : 1.6}
+              strokeDasharray={i === selectedIndex ? undefined : "4 3"}
+              dot={i === selectedIndex ? { r: 3 } : false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
 export function RouteOptionsResult({ routes, selectedIndex, onSelectRoute, onStartNavigation, healthNote, ageGroup }) {
   if (!routes || routes.length === 0) return null;
-  const data = routes[selectedIndex];
+  const data = routes[selectedIndex] || routes[0];
   const avgCategory = categorize(data.average_aqi_exposure);
   const peakCategory = categorize(data.peak_aqi_exposure);
 
@@ -97,7 +186,7 @@ export function RouteOptionsResult({ routes, selectedIndex, onSelectRoute, onSta
               >
                 <div className="route-option-top">
                   <span className="route-option-name">
-                    Route {i + 1}
+                    Route {i + 1} {r.corridor_label ? `· ${r.corridor_label}` : ""}
                     {r.recommended && <span className="recommended-badge">Recommended</span>}
                   </span>
                   <span className="route-option-aqi" style={{ color: categoryColor(r.average_aqi_exposure) }}>
@@ -105,7 +194,7 @@ export function RouteOptionsResult({ routes, selectedIndex, onSelectRoute, onSta
                   </span>
                 </div>
                 <div className="route-option-meta">
-                  {r.route_distance_km} km &middot; {r.route_duration_min} min &middot; {r.traffic_level} traffic
+                  {r.route_distance_km} km &middot; {r.route_duration_min} min &middot; {r.traffic_level} traffic ({r.congestion_percentage ?? 30}%)
                 </div>
               </button>
             ))}
@@ -120,8 +209,11 @@ export function RouteOptionsResult({ routes, selectedIndex, onSelectRoute, onSta
         </div>
       </div>
       <div className="advisory">
-        Average exposure across the trip &middot; Peak {data.peak_aqi_exposure} AQI ({peakCategory})
+        Average exposure across {data.corridor_label || `Route ${selectedIndex + 1}`} &middot; Peak {data.peak_aqi_exposure} AQI ({peakCategory})
       </div>
+
+      {/* Interactive checkpoint-by-checkpoint AQI profile graph across the routes */}
+      <RouteCorridorChart routes={routes} selectedIndex={selectedIndex} />
 
       <HealthAdvisory aqi={data.peak_aqi_exposure} ageGroup={ageGroup} healthNote={healthNote} />
 
@@ -150,10 +242,14 @@ export function RouteOptionsResult({ routes, selectedIndex, onSelectRoute, onSta
         </>
       )}
 
-      {/* Dynamic Departure Window Optimizer matching mobile app */}
+      {/* Dynamic Departure Window Optimizer with 8h forecast curve */}
       <CommuteOptimizer
         currentRouteAqi={data.average_aqi_exposure}
         baseDurationMins={data.route_duration_min}
+        congestionPct={data.congestion_percentage ?? 34}
+        corridorLabel={data.corridor_label || `Route ${selectedIndex + 1}`}
+        routePoints={data.route_points || []}
+        departureForecast={data.departure_forecast || null}
       />
 
       {/* Start Clean Navigation Button */}

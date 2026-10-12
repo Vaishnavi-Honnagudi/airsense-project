@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { categorize, categoryColor } from "../lib/aqi";
 
 export default function CleanNavigationHud({
@@ -7,61 +7,76 @@ export default function CleanNavigationHud({
   routeAqi = 145,
   distanceKm = 12.4,
   durationMins = 28,
+  corridorLabel = "Green Canopy Bypass",
+  routePoints = [],
   onExit,
 }) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [inhaledPm25, setInhaledPm25] = useState(0.8);
-  const [speed, setSpeed] = useState(38);
+  const [inhaledPm25, setInhaledPm25] = useState(0.6);
+  const [speed, setSpeed] = useState(34);
 
-  const steps = [
-    {
-      instruction: "Head south on Janpath toward Tolstoy Marg",
-      distance: "350 m",
-      subtext: "Entering low-emission green corridor",
-      icon: "⬆️",
-      stepAqi: Math.max(30, routeAqi - 12),
-    },
-    {
-      instruction: "Turn left onto Kasturba Gandhi Marg",
-      distance: "800 m",
-      subtext: "Traffic moving smoothly at 42 km/h",
-      icon: "↰",
-      stepAqi: Math.max(30, routeAqi - 5),
-    },
-    {
-      instruction: "At the roundabout, take the 2nd exit toward C-Hexagon",
-      distance: "1.4 km",
-      subtext: "Tree canopy reducing personal PM2.5 inhalation by 25%",
-      icon: "🔄",
-      stepAqi: Math.max(30, routeAqi - 18),
-    },
-    {
-      instruction: "Continue straight along clean corridor to destination",
-      distance: "500 m",
-      subtext: "Arriving at low-exposure zone",
-      icon: "🏁",
-      stepAqi: routeAqi,
-    },
-  ];
+  const steps = useMemo(() => {
+    const pts = Array.isArray(routePoints) && routePoints.length >= 4 ? routePoints : [];
+    const aqi0 = pts[0]?.predicted_aqi ?? Math.max(25, Math.round(routeAqi * 0.92));
+    const aqi1 = pts[Math.floor(pts.length * 0.35)]?.predicted_aqi ?? Math.max(25, Math.round(routeAqi * 0.96));
+    const aqi2 = pts[Math.floor(pts.length * 0.7)]?.predicted_aqi ?? Math.max(25, Math.round(routeAqi * 0.88));
+    const aqi3 = pts[pts.length - 1]?.predicted_aqi ?? Math.round(routeAqi);
 
-  // Microgram exposure accumulator & step progression simulation
+    const d1 = `${Math.max(0.4, (distanceKm * 0.25)).toFixed(1)} km`;
+    const d2 = `${Math.max(0.6, (distanceKm * 0.35)).toFixed(1)} km`;
+    const d3 = `${Math.max(0.5, (distanceKm * 0.25)).toFixed(1)} km`;
+    const d4 = `${Math.max(0.3, (distanceKm * 0.15)).toFixed(1)} km`;
+
+    return [
+      {
+        instruction: `Depart ${startLabel} via ${corridorLabel}`,
+        distance: d1,
+        subtext: `Entering calibrated low-emission segment (${aqi0} AQI)`,
+        icon: "⬆️",
+        stepAqi: aqi0,
+      },
+      {
+        instruction: `Continue along ${corridorLabel} toward ${destinationLabel}`,
+        distance: d2,
+        subtext: `Steady corridor flow · avoiding heavy arterial exhaust`,
+        icon: "↗️",
+        stepAqi: aqi1,
+      },
+      {
+        instruction: `Pass midpoint dispersion zone on ${corridorLabel}`,
+        distance: d3,
+        subtext: `Green buffer reducing personal PM2.5 inhalation`,
+        icon: "🌿",
+        stepAqi: aqi2,
+      },
+      {
+        instruction: `Arrive at ${destinationLabel}`,
+        distance: d4,
+        subtext: `Destination reached · Trip average ${routeAqi} AQI`,
+        icon: "🏁",
+        stepAqi: aqi3,
+      },
+    ];
+  }, [startLabel, destinationLabel, routeAqi, distanceKm, corridorLabel, routePoints]);
+
   useEffect(() => {
     const timer = setInterval(() => {
-      setInhaledPm25((prev) => parseFloat((prev + 0.15).toFixed(2)));
-      setSpeed(Math.floor(34 + Math.random() * 8));
+      const increment = Math.max(0.06, (routeAqi / 150) * 0.14);
+      setInhaledPm25((prev) => parseFloat((prev + increment).toFixed(2)));
+      setSpeed(Math.floor(30 + ((routeAqi % 9) + Math.random() * 7)));
     }, 2000);
 
     const stepInterval = setInterval(() => {
       setCurrentStepIndex((prev) => (prev < steps.length - 1 ? prev + 1 : prev));
-    }, 7000);
+    }, 6500);
 
     return () => {
       clearInterval(timer);
       clearInterval(stepInterval);
     };
-  }, [steps.length]);
+  }, [steps.length, routeAqi]);
 
-  const activeStep = steps[currentStepIndex];
+  const activeStep = steps[currentStepIndex] || steps[0];
   const stepColor = categoryColor(activeStep.stepAqi);
 
   return (
@@ -94,12 +109,12 @@ export default function CleanNavigationHud({
         <div className="hud-telemetry-col highlight-col">
           <span className="hud-t-label">INHALED PM2.5</span>
           <span className="hud-t-val inhaled-val">{inhaledPm25} <small>µg</small></span>
-          <span className="hud-saving-pill">-34% vs Highway</span>
+          <span className="hud-saving-pill">{corridorLabel}</span>
         </div>
 
         <div className="hud-telemetry-col">
           <span className="hud-t-label">REMAINING</span>
-          <span className="hud-t-val">{Math.max(2, durationMins - currentStepIndex * 6)} <small>min</small></span>
+          <span className="hud-t-val">{Math.max(2, Math.round(durationMins - currentStepIndex * (durationMins / 4)))} <small>min</small></span>
           <span className="hud-sub-dist">{distanceKm} km total</span>
         </div>
       </div>

@@ -5,11 +5,17 @@ import '../models/aqi_utils.dart';
 class CommuteOptimizerWidget extends StatefulWidget {
   final double currentRouteAqi;
   final int baseDurationMins;
+  final int congestionPct;
+  final String corridorLabel;
+  final List<dynamic>? departureForecast;
 
   const CommuteOptimizerWidget({
     super.key,
     required this.currentRouteAqi,
     required this.baseDurationMins,
+    this.congestionPct = 34,
+    this.corridorLabel = "Green Canopy Bypass",
+    this.departureForecast,
   });
 
   @override
@@ -17,43 +23,52 @@ class CommuteOptimizerWidget extends StatefulWidget {
 }
 
 class _CommuteOptimizerWidgetState extends State<CommuteOptimizerWidget> {
-  double _hourOffset = 2.0; // Default +2 hours (typically Delhi evening sweet spot)
+  double _hourOffset = 2.0; // Default +2 hours
 
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
-    final departureTime = now.add(Duration(minutes: (_hourOffset * 60).toInt()));
+    final stepIdx = _hourOffset.round();
+    final departureTime = now.add(Duration(hours: stepIdx));
 
-    // Realistic Delhi diurnal curve:
-    // Rush hour (18:00–20:30) has worst traffic & high inversion
-    // Later night (20:30–22:30) traffic drops and dispersion improves
-    double aqiFactor;
+    double projectedAqi;
+    int totalDuration;
     int trafficDelayMins;
 
-    final targetHour = departureTime.hour;
-    if (targetHour >= 18 && targetHour <= 20) {
-      // Peak evening rush + ground inversion
-      aqiFactor = 1.15;
-      trafficDelayMins = 18;
-    } else if (targetHour >= 21 || targetHour <= 1) {
-      // Night dispersion, less vehicular congestion
-      aqiFactor = 0.72;
-      trafficDelayMins = 3;
-    } else if (targetHour >= 13 && targetHour <= 16) {
-      // Afternoon solar dispersion
-      aqiFactor = 0.78;
-      trafficDelayMins = 6;
+    if (widget.departureForecast != null &&
+        stepIdx >= 0 &&
+        stepIdx < widget.departureForecast!.length &&
+        widget.departureForecast![stepIdx] is Map) {
+      final slot = widget.departureForecast![stepIdx] as Map;
+      projectedAqi = ((slot["projected_aqi"] as num?)?.toDouble() ?? widget.currentRouteAqi).clamp(22.0, 485.0);
+      totalDuration = ((slot["estimated_duration_min"] as num?)?.toDouble() ?? widget.baseDurationMins.toDouble()).round();
+      trafficDelayMins = ((slot["traffic_delay_min"] as num?)?.toInt() ?? 5);
     } else {
-      aqiFactor = 0.90;
-      trafficDelayMins = 10;
+      final targetHour = departureTime.hour + departureTime.minute / 60.0;
+      final phase = (widget.currentRouteAqi % 13) * 0.25;
+      final isRush = (targetHour >= 8.0 && targetHour <= 10.5) || (targetHour >= 17.5 && targetHour <= 20.5);
+      final isNight = targetHour >= 21.5 || targetHour <= 5.5;
+      final isAfternoon = targetHour >= 13.0 && targetHour <= 16.5;
+
+      double aqiFactor = 0.92;
+      if (isRush) {
+        aqiFactor = 1.12 + (widget.congestionPct / 400.0);
+      } else if (isNight) {
+        aqiFactor = 0.72 + (phase * 0.03);
+      } else if (isAfternoon) {
+        aqiFactor = 0.78 - (phase * 0.02);
+      } else {
+        aqiFactor = 0.88;
+      }
+
+      trafficDelayMins = ((widget.congestionPct * 0.24) * (isRush ? 1.35 : (isNight ? 0.35 : 0.75))).round().clamp(1, 35);
+      projectedAqi = (widget.currentRouteAqi * aqiFactor).clamp(22.0, 485.0);
+      totalDuration = widget.baseDurationMins + trafficDelayMins;
     }
 
-    final projectedAqi = (widget.currentRouteAqi * aqiFactor).clamp(40.0, 480.0);
-    final totalDuration = widget.baseDurationMins + trafficDelayMins;
     final color = categoryColor(projectedAqi);
     final category = categorize(projectedAqi);
-
-    final aqiSavings = ((widget.currentRouteAqi - projectedAqi) / widget.currentRouteAqi * 100).toInt();
+    final aqiSavings = ((widget.currentRouteAqi - projectedAqi) / widget.currentRouteAqi * 100).round();
 
     return Container(
       margin: const EdgeInsets.only(top: 14),

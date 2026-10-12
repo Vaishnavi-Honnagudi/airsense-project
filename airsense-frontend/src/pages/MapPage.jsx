@@ -47,6 +47,8 @@ export default function MapPage() {
     setMode(next);
     setSelectedPoint(null);
     setLocationResult(null);
+    setTimeline(null);
+    setWeatherHistory(null);
     setRouteStart(null);
     setRouteEnd(null);
     setRoutes(null);
@@ -60,6 +62,8 @@ export default function MapPage() {
       if (mode === "location") {
         setSelectedPoint({ lat, lng });
         setLocationResult(null);
+        setTimeline(null);
+        setWeatherHistory(null);
         return;
       }
 
@@ -78,6 +82,8 @@ export default function MapPage() {
         setRouteStart({ lat, lng });
         setRouteEnd(null);
         setRoutes(null);
+        setTimeline(null);
+        setWeatherHistory(null);
         setSelectedRouteIndex(0);
       }
     },
@@ -87,12 +93,16 @@ export default function MapPage() {
   function handleLocationSearchSelect(lat, lon, label) {
     setSelectedPoint({ lat, lng: lon, label });
     setLocationResult(null);
+    setTimeline(null);
+    setWeatherHistory(null);
     setStatus("");
   }
 
   function handleStartSearchSelect(lat, lon, label) {
     setRouteStart({ lat, lng: lon, label });
     setRoutes(null);
+    setTimeline(null);
+    setWeatherHistory(null);
     setSelectedRouteIndex(0);
     setStatus("");
   }
@@ -100,6 +110,8 @@ export default function MapPage() {
   function handleEndSearchSelect(lat, lon, label) {
     setRouteEnd({ lat, lng: lon, label });
     setRoutes(null);
+    setTimeline(null);
+    setWeatherHistory(null);
     setSelectedRouteIndex(0);
     setStatus("");
   }
@@ -120,13 +132,19 @@ export default function MapPage() {
         if (target === "location") {
           setSelectedPoint({ lat: latitude, lng: longitude, label: "Current Location" });
           setLocationResult(null);
+          setTimeline(null);
+          setWeatherHistory(null);
         } else if (target === "start") {
           setRouteStart({ lat: latitude, lng: longitude, label: "Current Location" });
           setRoutes(null);
+          setTimeline(null);
+          setWeatherHistory(null);
           setSelectedRouteIndex(0);
         } else if (target === "end") {
           setRouteEnd({ lat: latitude, lng: longitude, label: "Current Location" });
           setRoutes(null);
+          setTimeline(null);
+          setWeatherHistory(null);
           setSelectedRouteIndex(0);
         }
         setStatus("");
@@ -141,6 +159,27 @@ export default function MapPage() {
     );
   }
 
+  function getActiveChartCoords(overrideRouteIdx = selectedRouteIndex, routeList = routes) {
+    if (mode === "location" && selectedPoint) {
+      return { lat: selectedPoint.lat, lon: selectedPoint.lng };
+    }
+    if (mode === "route" && routeList && routeList.length > 0) {
+      const r = routeList[overrideRouteIdx] || routeList[0];
+      const pts = r.route_points || [];
+      if (pts.length > 0) {
+        const mid = pts[Math.floor(pts.length / 2)];
+        return { lat: Number(mid.lat), lon: Number(mid.lon) };
+      }
+      if (routeStart && routeEnd) {
+        return {
+          lat: (routeStart.lat + routeEnd.lat) / 2,
+          lon: (routeStart.lng + routeEnd.lng) / 2,
+        };
+      }
+    }
+    return null;
+  }
+
   async function submitLocation() {
     if (!selectedPoint) return;
     setLoading(true);
@@ -152,11 +191,11 @@ export default function MapPage() {
       const data = await predictAtLocation(selectedPoint.lat, selectedPoint.lng);
       setLocationResult(data);
       setStatus("");
-      
+
       addHistoryEntry({
-        type: 'location',
+        type: "location",
         aqi: data.interpolated_aqi,
-        locationLabel: selectedPoint.label || `${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lng.toFixed(4)}`
+        locationLabel: selectedPoint.label || `${selectedPoint.lat.toFixed(4)}, ${selectedPoint.lng.toFixed(4)}`,
       });
     } catch (err) {
       setStatus(`Couldn't reach the API — ${err.message}`);
@@ -166,13 +205,14 @@ export default function MapPage() {
     }
   }
 
-  async function fetchTimeline() {
-    if (!selectedPoint) return;
+  async function fetchTimeline(customCoords = null) {
+    const coords = customCoords || getActiveChartCoords();
+    if (!coords) return;
     setTimelineLoading(true);
-    setStatus("Building AQI trend — the future forecast takes a few extra seconds…");
+    setStatus("Building 24h AQI trend & LSTM forecast for this coordinate…");
     setStatusIsError(false);
     try {
-      const data = await getAqiTimeline(selectedPoint.lat, selectedPoint.lng, 24, 24);
+      const data = await getAqiTimeline(coords.lat, coords.lon, 24, 24);
       setTimeline(data);
       setStatus("");
     } catch (err) {
@@ -183,13 +223,14 @@ export default function MapPage() {
     }
   }
 
-  async function fetchWeatherHistory() {
-    if (!selectedPoint) return;
+  async function fetchWeatherHistory(customCoords = null) {
+    const coords = customCoords || getActiveChartCoords();
+    if (!coords) return;
     setWeatherLoading(true);
-    setStatus("Fetching weather history…");
+    setStatus("Fetching local microclimate weather history…");
     setStatusIsError(false);
     try {
-      const data = await getWeatherHistory(selectedPoint.lat, selectedPoint.lng, 168);
+      const data = await getWeatherHistory(coords.lat, coords.lon, 168);
       setWeatherHistory(data);
       setStatus("");
     } catch (err) {
@@ -200,27 +241,41 @@ export default function MapPage() {
     }
   }
 
+  async function handleSelectRouteIndex(newIdx) {
+    setSelectedRouteIndex(newIdx);
+    const coords = getActiveChartCoords(newIdx, routes);
+    if (coords && timeline) {
+      fetchTimeline(coords);
+    }
+    if (coords && weatherHistory) {
+      fetchWeatherHistory(coords);
+    }
+  }
+
   async function submitRoute() {
     if (!routeStart || !routeEnd) return;
     setLoading(true);
-    setStatus("Comparing routes — this takes a few seconds…");
+    setStatus("Comparing routes — evaluating corridor AQI & traffic…");
     setStatusIsError(false);
+    setTimeline(null);
+    setWeatherHistory(null);
     try {
       const data = await routeOptions(routeStart.lat, routeStart.lng, routeEnd.lat, routeEnd.lng);
       const routeList = data.routes || [];
-      const recIdx = (data.recommended_index != null && data.recommended_index >= 0 && data.recommended_index < routeList.length)
-        ? data.recommended_index
-        : 0;
+      const recIdx =
+        data.recommended_index != null && data.recommended_index >= 0 && data.recommended_index < routeList.length
+          ? data.recommended_index
+          : 0;
 
       setRoutes(routeList);
       setSelectedRouteIndex(recIdx);
       setStatus("");
-      
+
       if (routeList.length > 0 && routeList[recIdx]) {
         addHistoryEntry({
-          type: 'route',
+          type: "route",
           aqi: routeList[recIdx].average_aqi_exposure,
-          locationLabel: `${routeStart.label || 'Start'} to ${routeEnd.label || 'End'}`
+          locationLabel: `${routeStart.label || "Start"} to ${routeEnd.label || "End"}`,
         });
       }
     } catch (err) {
@@ -230,6 +285,10 @@ export default function MapPage() {
       setLoading(false);
     }
   }
+
+  const canShowGraphs =
+    (mode === "location" && locationResult) ||
+    (mode === "route" && routes && routes.length > 0);
 
   return (
     <div className="map-page-layout">
@@ -248,7 +307,7 @@ export default function MapPage() {
             <div className="field-label">Search, use current location, or click the map</div>
             <div className="search-with-locate">
               <LocationSearch
-                placeholder="e.g. Connaught Place, Karol Bagh…"
+                placeholder="e.g. Connaught Place, Anand Vihar, Aya Nagar…"
                 onSelect={(lat, lon, label) => handleLocationSearchSelect(lat, lon, label)}
                 dotColor="#2E6E5E"
               />
@@ -297,7 +356,7 @@ export default function MapPage() {
               )}
             </div>
 
-            <p className="hint">Search by name, use 📍 for your current location, or click the map. Compares up to 3 route options.</p>
+            <p className="hint">Search by name, use 📍 for your current location, or click the map. Compares 3 distinct route corridors.</p>
             <button className="primary" disabled={!routeStart || !routeEnd || loading} onClick={submitRoute}>
               Compare routes
             </button>
@@ -312,7 +371,7 @@ export default function MapPage() {
           <RouteOptionsResult
             routes={routes}
             selectedIndex={selectedRouteIndex}
-            onSelectRoute={setSelectedRouteIndex}
+            onSelectRoute={handleSelectRouteIndex}
             onStartNavigation={(routeData) => {
               setNavRouteData(routeData);
               setIsNavigating(true);
@@ -322,25 +381,33 @@ export default function MapPage() {
           />
         )}
 
-        {mode === "location" && locationResult && (
+        {canShowGraphs && (
           <>
             <button
               className="secondary"
               disabled={timelineLoading}
-              onClick={fetchTimeline}
+              onClick={() => fetchTimeline()}
               style={{ marginTop: 14 }}
             >
-              {timelineLoading ? "Loading trend…" : "View 24h AQI trend (past + forecast)"}
+              {timelineLoading
+                ? "Loading trend…"
+                : mode === "route"
+                ? `View 24h AQI trend (Route ${selectedRouteIndex + 1} corridor)`
+                : "View 24h AQI trend (past + forecast)"}
             </button>
             <AqiTimelineChart data={timeline} />
 
             <button
               className="secondary"
               disabled={weatherLoading}
-              onClick={fetchWeatherHistory}
+              onClick={() => fetchWeatherHistory()}
               style={{ marginTop: 10 }}
             >
-              {weatherLoading ? "Loading weather…" : "View weather history (hourly/daily)"}
+              {weatherLoading
+                ? "Loading weather…"
+                : mode === "route"
+                ? `View weather history (Route ${selectedRouteIndex + 1} corridor)`
+                : "View weather history (hourly/daily)"}
             </button>
             <WeatherHistoryChart data={weatherHistory} />
           </>
@@ -357,7 +424,7 @@ export default function MapPage() {
           routeEnd={routeEnd}
           routes={routes}
           selectedRouteIndex={selectedRouteIndex}
-          onSelectRoute={setSelectedRouteIndex}
+          onSelectRoute={handleSelectRouteIndex}
         />
 
         {isNavigating && navRouteData && (
@@ -367,6 +434,8 @@ export default function MapPage() {
             routeAqi={navRouteData.average_aqi_exposure}
             distanceKm={navRouteData.route_distance_km}
             durationMins={navRouteData.route_duration_min}
+            corridorLabel={navRouteData.corridor_label || `Route ${selectedRouteIndex + 1}`}
+            routePoints={navRouteData.route_points || []}
             onExit={() => setIsNavigating(false)}
           />
         )}
